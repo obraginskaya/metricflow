@@ -40,8 +40,20 @@ class SqlTable:
 
     @staticmethod
     def from_node_relation(node_relation: NodeRelation) -> SqlTable:
-        """Create a SQL table from a node relation."""
-        return SqlTable.from_string(node_relation.relation_name)
+        """Create a SQL table from a node relation.
+        
+        If relation_name is incomplete (doesn't contain dots), construct it from
+        database, schema_name, and alias fields. This is needed for adapters like
+        Firebolt that require fully qualified table names.
+        """
+        relation_name = node_relation.relation_name
+        # If relation_name is incomplete (no dots), construct it from node_relation fields
+        if "." not in relation_name:
+            if node_relation.database:
+                relation_name = f"{node_relation.database}.{node_relation.schema_name}.{node_relation.alias}"
+            else:
+                relation_name = f"{node_relation.schema_name}.{node_relation.alias}"
+        return SqlTable.from_string(relation_name)
 
     @property
     def sql(self) -> str:
