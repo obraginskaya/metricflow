@@ -17,22 +17,6 @@ from metricflow_semantics.toolkit.cache.lru_cache import typed_lru_cache
 logger = logging.getLogger(__name__)
 
 
-def _build_sql_table_from_node_relation(node_relation) -> SqlTable:
-    """Build a SqlTable from a node relation, handling incomplete relation_name.
-    
-    If relation_name doesn't contain dots, construct it from database, schema_name, and alias.
-    This is needed for adapters like Firebolt that require fully qualified table names.
-    """
-    relation_name = node_relation.relation_name
-    # If relation_name is incomplete (no dots), construct it from node_relation fields
-    if "." not in relation_name:
-        if node_relation.database:
-            relation_name = f"{node_relation.database}.{node_relation.schema_name}.{node_relation.alias}"
-        else:
-            relation_name = f"{node_relation.schema_name}.{node_relation.alias}"
-    return SqlTable.from_string(relation_name)
-
-
 @dataclass(frozen=True)
 class TimeSpineSource:
     """A calendar table. Should contain at least one column with dates/times that map to a standard granularity.
@@ -54,7 +38,7 @@ class TimeSpineSource:
         """Creates a time spine source based on what's in the manifest."""
         time_spine_sources = {
             time_spine.primary_column.time_granularity: TimeSpineSource(
-                sql_table=_build_sql_table_from_node_relation(time_spine.node_relation),
+                sql_table=SqlTable.from_node_relation(time_spine.node_relation),
                 base_column=time_spine.primary_column.name,
                 base_granularity=time_spine.primary_column.time_granularity,
                 custom_granularities=tuple(
