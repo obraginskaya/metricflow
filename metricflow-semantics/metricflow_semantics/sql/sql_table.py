@@ -42,17 +42,36 @@ class SqlTable:
     def from_node_relation(node_relation: NodeRelation) -> SqlTable:
         """Create a SQL table from a node relation.
         
-        If relation_name is incomplete (doesn't contain dots), construct it from
-        database, schema_name, and alias fields. This is needed for adapters like
-        Firebolt that require fully qualified table names.
+        Handles incomplete relation_name by constructing fully qualified names from
+        available fields. This is needed for adapters like Firebolt that require
+        fully qualified table names.
         """
-        relation_name = node_relation.relation_name
-        # If relation_name is incomplete (no dots), construct it from node_relation fields
-        if "." not in relation_name:
-            if node_relation.database:
-                relation_name = f"{node_relation.database}.{node_relation.schema_name}.{node_relation.alias}"
-            else:
-                relation_name = f"{node_relation.schema_name}.{node_relation.alias}"
+        relation_name = getattr(node_relation, "relation_name", None) or ""
+        schema = getattr(node_relation, "schema_name", None) or getattr(node_relation, "schema", None)
+        db = (
+            getattr(node_relation, "database", None)
+            or getattr(node_relation, "db_name", None)
+            or getattr(node_relation, "database_name", None)
+        )
+        identifier = (
+            getattr(node_relation, "alias", None)
+            or getattr(node_relation, "identifier", None)
+            or getattr(node_relation, "relation_name", None)
+        )
+
+        # If relation_name is already qualified, just parse it.
+        if "." in relation_name:
+            return SqlTable.from_string(relation_name)
+
+        # Otherwise build best-effort fully-qualified name from components.
+        if db and schema and identifier:
+            return SqlTable(db_name=db, schema_name=schema, table_name=identifier)
+        if schema and identifier:
+            return SqlTable(schema_name=schema, table_name=identifier)
+        if identifier:
+            return SqlTable(schema_name=None, table_name=identifier)
+        
+        # Fallback: try to parse relation_name even if incomplete
         return SqlTable.from_string(relation_name)
 
     @property
